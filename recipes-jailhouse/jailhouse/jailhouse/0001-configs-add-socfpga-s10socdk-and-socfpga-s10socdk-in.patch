@@ -1,0 +1,334 @@
+From 81dea47fd3a068f7a2abf4f2f4898272d2d003d9 Mon Sep 17 00:00:00 2001
+From: "Kai-Feng Chou (Maple)" <mapleelpam@gmail.com>
+Date: Thu, 12 Nov 2020 17:19:05 +0800
+Subject: [PATCH] configs: add socfpga-s10socdk and
+ socfpga-s10socdk-inmate-demo
+
+Signed-off-by: Kai-Feng,Chou (maple) <mapleelpam@gmail.com>
+---
+ Documentation/setup-on-s10-socfpga-devkit.md | 104 ++++++++++++++++
+ configs/arm64/socfpga-s10socdk-inmate-demo.c |  75 ++++++++++++
+ configs/arm64/socfpga-s10socdk.c             | 118 +++++++++++++++++++
+ 3 files changed, 297 insertions(+)
+ create mode 100644 Documentation/setup-on-s10-socfpga-devkit.md
+ create mode 100644 configs/arm64/socfpga-s10socdk-inmate-demo.c
+ create mode 100644 configs/arm64/socfpga-s10socdk.c
+
+diff --git a/Documentation/setup-on-s10-socfpga-devkit.md b/Documentation/setup-on-s10-socfpga-devkit.md
+new file mode 100644
+index 00000000..b1a6c3bc
+--- /dev/null
++++ b/Documentation/setup-on-s10-socfpga-devkit.md
+@@ -0,0 +1,104 @@
++Setup on S10 SoCFPGA DevKit
++===========================
++https://rocketboards.org/foswiki/Documentation/Stratix10SoCGSRD
++Use GHRD and GSRD and tested with following TAG version
++Linux	https://github.com/altera-opensource/linux-socfpga	socfpga-5.4.23-lts	ACDS20.1_REL_GSRD_PR
++U-Boot	https://github.com/altera-opensource/u-boot-socfpga	socfpga_v2019.10	ACDS20.1_REL_GSRD_PR
++
++Memory Layout
++-------------
++reference this for the detail -
++https://www.intel.com/content/www/us/en/programmable/hps/stratix-10/hps.html
++
++Linux Kernel Build
++------------------
++Nothing special, just reference GSRD.
++
++Jailhouse build
++---------------
++
++    $ wget https://releases.linaro.org/components/toolchain/binaries/7.5-2019.12/aarch64-linux-gnu/gcc-linaro-7.5.0-2019.12-x86_64_aarch64-linux-gnu.tar.xz
++    $ tar xf gcc-linaro-7.5.0-2019.12-x86_64_aarch64-linux-gnu.tar.xz
++    $ export CROSS_COMPILE=$(pwd)/gcc-linaro-7.5.0-2019.12-x86_64_aarch64-linux-gnu/bin/aarch64-linux-gnu-
++    $ export ARCH=arm64
++
++    $ make KDIR='where for linux folder'
++
++In SD Card's root folder
++    1. copy jailhouse/driver/jailhouse.ko /lib/modules/`uname -r`/
++    2. copy jailhouse/hypervisor/jailhouse.bin /lib/firmware/
++    3. copy jailhouse/tools/jailhouse /usr/sbin/
++    4. copy jailhouse/inmates/demo/arm64/gic-demo to /home/root/
++    5. copy jailhouse/inmates/demo/arm64/uart-demo to /home/root/
++    6. copy jailhouse/configs/arm64/socfpga-s10socdk-inmate-demo.cell to /home/root/
++    7. copy jailhouse/configs/arm64/socfpga-s10socd.cell to /home/root/
++
++U-Boot
++------
++Remember to add mem=, in the default .cell setting. it should be 'mem=1024'
++
++SOCFPGA_STRATIX10 # setenv mmcboot 'setenv bootargs earlycon panic=-1 root=${mmcroot} rw rootwait mem=1024M;booti ${loadaddr} - ${fdt_addr}'
++SOCFPGA_STRATIX10 # saveenv
++Saving Environment to MMC... Writing to MMC(0)... OK
++SOCFPGA_STRATIX10 #
++
++Testing Jailhouse GIC Demo
++--------------------------
++
++root@stratix10:~# ls
++README                             intelFPGA                          socfpga-s10socdk-inmate-demo.cell  uart-demo.bin
++gic-demo.bin                       jailhouse.ko                       socfpga-s10socdk.cell
++root@stratix10:~# insmod ./jailhouse.ko
++[   28.780038] jailhouse: loading out-of-tree module taints kernel.
++root@stratix10:~# [   31.713788] 0.33V: disabling
++
++root@stratix10:~# jailhouse enable ./socfpga-s10socdk.cell
++
++Initializing Jailhouse hypervisor v0.12 (136-g13c360e0-dirty) on CPU 0
++Code location: 0x0000ffffc0200800
++Page pool usage after early setup: mem 45/4063, remap 0/131072
++Initializing processors:
++ CPU 0... OK
++ CPU 2... OK
++ CPU 3... OK
++ CPU 1... OK
++Initializing unit: irqchip
++Initializing unit: ARM SMMU v3
++Initializing unit: ARM SMMU
++Initializing unit: PVU IOMMU
++Initializing unit: PCI
++Page pool usage after late setup: mem 69/4063, remap 5/131072
++Activating hypervisor
++[   48.944736] The Jailhouse is opening.
++root@stratix10:~# jailhouse cell create ./socfpga-s10socdk-inmate-demo.cell
++[   66.042068] CPU3: shutdown
++[   66.044791] psci: CPU3 killed (polled 0 ms)
++Created cell "inmate-demo"
++Page pool usage after cell creation: mem 83/4063, remap 5/131072
++[   66.060156] Created Jailhouse cell "inmate-demo"
++root@stratix10:~# jailhouse cell load 1 ./gic-demo.bin
++Cell "inmate-demo" can be loaded
++root@stratix10:~# jailhouse cell start 1
++root@stratix10:~# jailhouse cell start 1
++Started cell "inmate-demo"
++root@stratix10:~# Initializing the GIC...
++Initializing the timer...
++Timer fired, jitter:   2442 ns, min:   2442 ns, max:   2442 ns
++Timer fired, jitter:    849 ns, min:    849 ns, max:   2442 ns
++Timer fired, jitter:    817 ns, min:    817 ns, max:   2442 ns
++Timer fired, jitter:    807 ns, min:    807 ns, max:   2442 ns
++Timer fired, jitter:    807 ns, min:    807 ns, max:   2442 ns
++Timer fired, jitter:    807 ns, min:    807 ns, max:   2442 ns
++Timer fired, jitter:    807 ns, min:    807 ns, max:   2442 ns
++Timer fired, jitter:    807 ns, min:    807 ns, max:   2442 ns
++Timer fired, jitter:    807 ns, min:    807 ns, max:   2442 ns
++Timer fired, jitter:    807 ns, min:    807 ns, max:   2442 ns
++Timer fired, jitter:    807 ns, min:    807 ns, max:   2442 ns
++Timer fired, jitter:    799 ns, min:    799 ns, max:   2442 ns
++Timer fired, jitter:    797 ns, min:    797 ns, max:   2442 ns
++Timer fired, jitter:    799 ns, min:    797 ns, max:   2442 ns
++Timer fired, jitter:    797 ns, min:    797 ns, max:   2442 ns
++Timer fired, jitter:    807 ns, min:    797 ns, max:   2442 ns
++Timer fired, jitter:    807 ns, min:    797 ns, max:   2442 ns
++
++
+diff --git a/configs/arm64/socfpga-s10socdk-inmate-demo.c b/configs/arm64/socfpga-s10socdk-inmate-demo.c
+new file mode 100644
+index 00000000..628b1c4c
+--- /dev/null
++++ b/configs/arm64/socfpga-s10socdk-inmate-demo.c
+@@ -0,0 +1,75 @@
++/*
++ * Jailhouse, a Linux-based partitioning hypervisor
++ *
++ * Configuration for demo inmate on Xilinx ZynqMP ZCU102 eval board:
++ * 1 CPU, 64K RAM, 1 serial port
++ *
++ * Copyright (c) Siemens AG, 2016
++ *
++ * Authors:
++ *  Jan Kiszka <jan.kiszka@siemens.com>
++ *
++ * This work is licensed under the terms of the GNU GPL, version 2.  See
++ * the COPYING file in the top-level directory.
++ */
++/*
++ * copy from zcu102 board setting and here's the configuration for socfpga stratix10 devkit
++ * Authors:
++ *  Kai-Feng,Chou (maple) <mapleelpam@gmail.com>
++ */
++
++
++#include <jailhouse/types.h>
++#include <jailhouse/cell-config.h>
++
++struct {
++	struct jailhouse_cell_desc cell;
++	__u64 cpus[1];
++	struct jailhouse_memory mem_regions[3];
++} __attribute__((packed)) config = {
++	.cell = {
++		.signature = JAILHOUSE_CELL_DESC_SIGNATURE,
++		.revision = JAILHOUSE_CONFIG_REVISION,
++		.name = "inmate-demo",
++		.flags = JAILHOUSE_CELL_PASSIVE_COMMREG,
++
++		.cpu_set_size = sizeof(config.cpus),
++		.num_memory_regions = ARRAY_SIZE(config.mem_regions),
++		.num_irqchips = 0,
++		.num_pci_devices = 0,
++
++		.console = {
++			.address = 0xffc02000,
++			.type = JAILHOUSE_CON_TYPE_8250,
++			.flags = JAILHOUSE_CON_ACCESS_MMIO |
++				 JAILHOUSE_CON_REGDIST_4,
++		},
++	},
++
++	.cpus = {
++		0x8,
++	},
++
++	.mem_regions = {
++		/* UART */ {
++			.phys_start = 0xffc02000,
++			.virt_start = 0xffc02000,
++			.size = 0x1000,
++			.flags = JAILHOUSE_MEM_READ | JAILHOUSE_MEM_WRITE |
++				JAILHOUSE_MEM_IO | JAILHOUSE_MEM_ROOTSHARED,
++		},
++		/* RAM */ {
++			.phys_start = 0x041000000,
++			.virt_start = 0,
++			.size = 0x00010000,
++			.flags = JAILHOUSE_MEM_READ | JAILHOUSE_MEM_WRITE |
++				JAILHOUSE_MEM_EXECUTE | JAILHOUSE_MEM_LOADABLE,
++		},
++		/* communication region */ {
++			.virt_start = 0x80000000,
++			.size = 0x00001000,
++			.flags = JAILHOUSE_MEM_READ | JAILHOUSE_MEM_WRITE |
++				JAILHOUSE_MEM_COMM_REGION,
++		},
++	}
++};
+diff --git a/configs/arm64/socfpga-s10socdk.c b/configs/arm64/socfpga-s10socdk.c
+new file mode 100644
+index 00000000..d3b04434
+--- /dev/null
++++ b/configs/arm64/socfpga-s10socdk.c
+@@ -0,0 +1,118 @@
++/*
++ * Jailhouse, a Linux-based partitioning hypervisor
++ *
++ * Configuration for Xilinx ZynqMP ZCU102 eval board
++ *
++ * Copyright (c) Siemens AG, 2016
++ *
++ * Authors:
++ *  Jan Kiszka <jan.kiszka@siemens.com>
++ *
++ * This work is licensed under the terms of the GNU GPL, version 2.  See
++ * the COPYING file in the top-level directory.
++ *
++ * Reservation via device tree: 0x800000000..0x83fffffff
++ */
++/*
++ * copy from zcu102 board setting and here's the configuration for socfpga stratix10 devkit
++ *  Kai-Feng,Chou (maple) <mapleelpam@gmail.com>
++ */
++
++#include <jailhouse/types.h>
++#include <jailhouse/cell-config.h>
++
++struct {
++	struct jailhouse_system header;
++	__u64 cpus[1];
++	struct jailhouse_memory mem_regions[6];
++	struct jailhouse_irqchip irqchips[1];
++} __attribute__((packed)) config = {
++	.header = {
++		.signature = JAILHOUSE_SYSTEM_SIGNATURE,
++		.revision = JAILHOUSE_CONFIG_REVISION,
++		.flags = JAILHOUSE_SYS_VIRTUAL_DEBUG_CONSOLE,
++		.hypervisor_memory = {
++			.phys_start = 0x040000000,
++			.size =       0x001000000,
++		},
++		.debug_console = {
++			.address = 0xffc02000,
++			.size = 0x1000,
++			.type = JAILHOUSE_CON_TYPE_8250,
++			.flags = JAILHOUSE_CON_ACCESS_MMIO |
++				 JAILHOUSE_CON_REGDIST_4,
++		},
++		.platform_info = {
++			.arm = {
++				.gic_version = 2,
++				.gicd_base = 0xfffc1000,
++				.gicc_base = 0xfffc2000,
++				.gich_base = 0xfffc4000,
++				.gicv_base = 0xfffc6000,
++				.maintenance_irq = 25,
++			},
++		},
++		.root_cell = {
++			.name = "Stratix10-SoCfpga-SoCdk",
++
++			.cpu_set_size = sizeof(config.cpus),
++			.num_memory_regions = ARRAY_SIZE(config.mem_regions),
++			.num_irqchips = ARRAY_SIZE(config.irqchips),
++			.num_pci_devices = 0,
++
++		},
++	},
++
++	.cpus = {
++		0xf,
++	},
++
++	.mem_regions = {
++		/* RAM */ {
++			.phys_start = 0x0,
++			.virt_start = 0x0,
++			.size = 0x40000000,
++			.flags = JAILHOUSE_MEM_READ | JAILHOUSE_MEM_WRITE |
++				JAILHOUSE_MEM_EXECUTE,
++		},
++		/* RAM non-root cell */ {
++			.phys_start = 0x041000000,
++			.virt_start = 0x041000000,
++			.size       =  0x40000000,
++			.flags = JAILHOUSE_MEM_READ | JAILHOUSE_MEM_WRITE |
++				JAILHOUSE_MEM_EXECUTE,
++		},
++		/* FPGA 1.5GB */ {
++			.phys_start = 0x80000000,
++			.virt_start = 0x80000000,
++			.size       = 0x60000000,
++			.flags = JAILHOUSE_MEM_READ | JAILHOUSE_MEM_WRITE |
++				JAILHOUSE_MEM_IO,
++		},
++		/* DEVICE 142MB */ {
++			.phys_start	= 0xF7000000,
++			.virt_start	= 0xF7000000,
++			.size 		= 0x08F00000,
++			.flags = JAILHOUSE_MEM_READ | JAILHOUSE_MEM_WRITE |
++				JAILHOUSE_MEM_IO,
++		},
++		/* FPGA_bridge_soc2fpga_1G + FPGA_bridge_soc2fpga_512M + FPGA_bridge_soc2fpga_2.5G */ {
++			.phys_start	= 0x2000000000,
++			.virt_start	= 0x2000000000,
++			.size 		= 0x0100008000,
++			.flags = JAILHOUSE_MEM_READ | JAILHOUSE_MEM_WRITE |
++				JAILHOUSE_MEM_IO,
++		},
++	},
++
++	.irqchips = {
++		/* GIC */ {
++			.address = 0xfffc1000,
++			.pin_base = 32,
++			.pin_bitmap = {
++				0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
++			},
++		},
++	},
++
++};
+-- 
+2.25.1
+
